@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Integral - Proyecto Agua</title>
+    <title>Inventario y Presupuestos - Proyecto Agua</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librerías para generación de PDF directo en el dispositivo -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     
@@ -15,12 +16,15 @@
         let bd_productos = [];
         let bd_rubros = [];
         let bd_proveedores = [];
-        let bd_monedas = [];
+        let bd_monedas = ["ARS", "USD Oficial", "USD Nataclor", "USD Vulcano"];
         let bd_presupuestos = [];
         let bd_eventos = [];
         let bd_chat = [];
 
+        let cotizaciones = {};
         let productoSeleccionado = null;
+
+        // Lista de items para el presupuesto actual
         let itemsPresupuesto = [];
         let prodSeleccionadoPresupuesto = null;
 
@@ -48,158 +52,191 @@
 </head>
 <body class="bg-[url('bg.jpg')] bg-cover bg-center bg-no-repeat bg-fixed text-gray-100 font-sans min-h-screen">
 
-    <div class="min-h-screen bg-black/50 backdrop-blur-sm w-full py-4 pb-24">
+    <!-- CAPA DE OSCURECIMIENTO Y DESENFOQUE PARA LEGIBILIDAD -->
+    <div class="min-h-screen bg-black/40 backdrop-blur-sm w-full py-4 pb-24">
         
-        <div id="contenedorWeb" class="max-w-md mx-auto px-3 hidden">
+        <!-- CONTENEDOR PRINCIPAL INTERFAZ -->
+        <div id="contenedorWeb" class="max-w-md mx-auto px-4 hidden">
             
-            <!-- CABECERA PRINCIPAL -->
-            <header class="mb-3 bg-gray-800/95 p-3 rounded-xl border border-gray-700 shadow-xl backdrop-blur-md">
+            <header class="mb-4 bg-gray-800/95 p-4 rounded-xl border border-gray-700 shadow-xl backdrop-blur-md">
                 <h1 class="text-xl font-bold text-blue-400 text-center tracking-wide uppercase">Proyecto Agua</h1>
-                <p class="text-[11px] text-gray-400 text-center mb-2">Gestión Centralizada & Multisucursal</p>
+                <p class="text-xs text-gray-400 text-center mb-3">Gestión de Inventario Centralizado</p>
                 
-                <!-- COTIZACIONES DINÁMICAS -->
-                <div class="bg-gray-900/90 p-2.5 rounded-lg border border-gray-700 space-y-2">
+                <!-- SECCIÓN DE COTIZACIONES DE DÓLAR Y MONEDAS DINÁMICAS -->
+                <div class="bg-gray-900/90 p-3 rounded-lg border border-gray-700 space-y-2">
                     <div class="flex justify-between items-center border-b border-gray-800 pb-1">
-                        <span class="text-xs font-bold text-gray-300 uppercase">💵 Cotizaciones de Dólar</span>
-                        <button onclick="crearAuxiliarMoneda()" class="text-[10px] text-emerald-400 hover:underline font-bold">+ Crear Moneda</button>
+                        <span class="text-xs font-bold text-gray-300 uppercase">💵 Cotizaciones de Monedas</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="crearAuxiliar('Monedas')" class="text-[10px] bg-blue-600 hover:bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded">➕ Moneda</button>
+                            <span id="estadoDolar" class="text-[10px] text-emerald-400 italic">Guardado</span>
+                        </div>
                     </div>
 
-                    <div id="contenedorCotizaciones" class="grid grid-cols-1 gap-1.5 text-xs">
-                        <!-- Se renderizan las monedas dinámicamente -->
+                    <div id="contenedorCotizaciones" class="grid grid-cols-1 gap-2 text-xs">
+                        <!-- Generado dinámicamente -->
                     </div>
                 </div>
             </header>
 
-            <!-- NAV TABS -->
-            <nav class="grid grid-cols-4 gap-1 mb-4 bg-gray-900/90 p-1 rounded-xl border border-gray-700 text-[10px] font-bold uppercase text-center">
-                <button onclick="cambiarPestaña('inventario')" id="tab-inventario" class="py-2 rounded-lg bg-blue-600 text-white shadow">📦 Stock</button>
-                <button onclick="cambiarPestaña('historial')" id="tab-historial" class="py-2 rounded-lg text-gray-400 hover:text-white">📑 Historial</button>
-                <button onclick="cambiarPestaña('calendario')" id="tab-calendario" class="py-2 rounded-lg text-gray-400 hover:text-white relative">
-                    <span>📅 Agenda</span>
-                    <span id="badgeAlertas" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center font-bold">!</span>
-                </button>
-                <button onclick="cambiarPestaña('chat')" id="tab-chat" class="py-2 rounded-lg text-gray-400 hover:text-white">💬 Chat</button>
-            </nav>
-
-            <!-- PESTAÑA 1: INVENTARIO Y PRESUPUESTOS -->
-            <div id="vista-inventario" class="space-y-4">
-                <button onclick="abrirModalPresupuesto()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 border border-emerald-400/30 transition-all">
-                    <span>📄</span>
-                    <span>Generar Nuevo Presupuesto</span>
-                </button>
-
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="cambiarModo('buscar')" id="btnModoBuscar" class="bg-blue-600 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all">🔍 Buscar / Operar</button>
-                    <button onclick="cambiarModo('crear')" id="btnModoCrear" class="bg-gray-800/90 border border-gray-700 text-gray-400 font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all">➕ Alta Producto</button>
+            <!-- SECCIÓN CALENDARIO Y EVENTOS / AVISOS -->
+            <section class="mb-4 bg-gray-800/95 p-3.5 rounded-xl border border-gray-700 shadow-lg space-y-2">
+                <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                    <span class="text-xs font-bold text-amber-400 uppercase flex items-center gap-1">
+                        <span>📅</span> Calendario y Tareas
+                    </span>
+                    <span id="cantAlertas" class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">0 Pendientes</span>
                 </div>
 
-                <!-- BUSCADOR -->
-                <section id="seccionBuscador">
-                    <div class="relative">
-                        <input type="text" id="buscador" oninput="renderizarBusqueda()" placeholder="Ej: 'alg 1l nataclor' o 'rep dolphin'" class="w-full bg-gray-800/95 border border-gray-700 rounded-xl px-4 py-3 pl-10 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 shadow-lg">
-                        <span class="absolute left-3 top-3.5 text-gray-500">🔍</span>
-                    </div>
-                    <div id="listaResultados" class="mt-2 space-y-2 max-h-80 overflow-y-auto"></div>
-                </section>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button onclick="abrirModalCrearEvento()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-2 rounded-lg text-xs uppercase flex items-center justify-center gap-1 shadow">
+                        <span>➕</span> Evento / Aviso
+                    </button>
+                    <button onclick="abrirModalChecklist()" class="bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-2 rounded-lg text-xs uppercase flex items-center justify-center gap-1 shadow">
+                        <span>📋</span> Checklist
+                    </button>
+                </div>
 
-                <!-- FORMULARIO ALTA NUEVO PRODUCTO -->
-                <section id="seccionAltaNueva" class="hidden bg-gray-800/95 p-4 rounded-xl border-l-4 border-emerald-500 shadow-lg space-y-3">
-                    <h3 class="font-bold text-white text-xs uppercase tracking-wider">✨ Ingresar Nuevo Artículo</h3>
+                <!-- Resumen de próximos eventos -->
+                <div id="resumenEventosProximos" class="space-y-1 pt-1 text-[11px] text-gray-300">
+                    <!-- Dinámico -->
+                </div>
+            </section>
+
+            <!-- BOTONES PRINCIPALES DE PRESUPUESTOS -->
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button onclick="abrirModalPresupuesto()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-bold py-3 px-2 rounded-xl text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-1 border border-emerald-400/30">
+                    <span>📄</span> Nuevo Presupuesto
+                </button>
+                <button onclick="abrirModalHistorialPresupuestos()" class="bg-indigo-700 hover:bg-indigo-600 active:scale-95 text-white font-bold py-3 px-2 rounded-xl text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-1 border border-indigo-400/30">
+                    <span>📂</span> Histórico
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-6">
+                <button onclick="cambiarModo('buscar')" id="btnModoBuscar" class="bg-blue-600 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all">🔍 Buscar / Operar</button>
+                <button onclick="cambiarModo('crear')" id="btnModoCrear" class="bg-gray-800/90 border border-gray-700 text-gray-400 font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all">➕ Alta Producto</button>
+            </div>
+
+            <!-- BUSCADOR INTELIGENTE -->
+            <section id="seccionBuscador" class="mb-6">
+                <div class="relative">
+                    <input type="text" id="buscador" oninput="renderizarBusqueda()" placeholder="Ej: 'alg 1l nataclor' o 'rep dolphin'" class="w-full bg-gray-800/95 border border-gray-700 rounded-xl px-4 py-3 pl-10 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 shadow-lg">
+                    <span class="absolute left-3 top-3.5 text-gray-500">🔍</span>
+                </div>
+                <div id="listaResultados" class="mt-2 space-y-2 max-h-96 overflow-y-auto"></div>
+            </section>
+
+            <!-- FORMULARIO DE ALTA -->
+            <section id="seccionAltaNueva" class="hidden bg-gray-800/95 p-4 rounded-xl border-l-4 border-emerald-500 shadow-lg mb-6 space-y-3">
+                <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-2">✨ Ingresar Nuevo Artículo al Sistema</h3>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Código Único (ID):</label>
+                    <input type="text" id="nuevoID" placeholder="Ej: DOL-01" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Descripción / Nombre Completo:</label>
+                    <input type="text" id="nuevoDesc" placeholder="Ej: Alguicida Nataclor 1 Litro" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-[10px] text-gray-400 mb-1">Código Único (ID):</label>
-                        <input type="text" id="nuevoID" placeholder="Ej: DOL-01" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        <label class="block text-xs text-gray-400 mb-1">Rubro:</label>
+                        <div class="flex gap-1">
+                            <select id="nuevoRubro" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"></select>
+                            <button onclick="crearAuxiliar('Rubros')" class="bg-gray-700 px-2 rounded-lg text-sm hover:bg-gray-600">➕</button>
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-[10px] text-gray-400 mb-1">Descripción / Nombre Completo:</label>
-                        <input type="text" id="nuevoDesc" placeholder="Ej: Alguicida Nataclor 1 Litro" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Rubro:</label>
-                            <div class="flex gap-1">
-                                <select id="nuevoRubro" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white"></select>
-                                <button onclick="crearAuxiliar('Rubros')" class="bg-gray-700 px-2 rounded-lg text-xs">➕</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Proveedor:</label>
-                            <div class="flex gap-1">
-                                <select id="nuevoProv" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white"></select>
-                                <button onclick="crearAuxiliar('Proveedores')" class="bg-gray-700 px-2 rounded-lg text-xs">➕</button>
-                            </div>
+                        <label class="block text-xs text-gray-400 mb-1">Proveedor:</label>
+                        <div class="flex gap-1">
+                            <select id="nuevoProv" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"></select>
+                            <button onclick="crearAuxiliar('Proveedores')" class="bg-gray-700 px-2 rounded-lg text-sm hover:bg-gray-600">➕</button>
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Moneda:</label>
-                            <select id="nuevoMoneda" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white"></select>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Precio Base:</label>
-                            <input type="number" id="nuevoPrecio" value="0" step="0.01" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-center font-bold text-white">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Costo Variable:</label>
-                            <input type="number" id="nuevoCosto" value="0" step="0.01" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-center text-white">
-                        </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Moneda:</label>
+                        <select id="nuevoMoneda" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500"></select>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Stock Lemos:</label>
-                            <input type="number" id="nuevoStockLemos" value="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-center text-white">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-gray-400 mb-1">Stock Ozamis:</label>
-                            <input type="number" id="nuevoStockOzamis" value="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-center text-white">
-                        </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Precio Base:</label>
+                        <input type="number" id="nuevoPrecio" value="0" step="0.01" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-center text-white font-bold focus:outline-none focus:border-emerald-500">
                     </div>
-                    <button onclick="registrarProductoNuevo()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-2.5 rounded-lg text-xs uppercase shadow-md">🚀 Dar de Alta e Inyectar a Sheets</button>
-                </section>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Costo Variable:</label>
+                        <input type="number" id="nuevoCosto" value="0" step="0.01" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-center focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Stock Lemos Inicial:</label>
+                        <input type="number" id="nuevoStockLemos" value="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-center text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Stock Ozamis Inicial:</label>
+                        <input type="number" id="nuevoStockOzamis" value="0" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-center text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <button onclick="registrarProductoNuevo()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-2.5 rounded-lg text-sm mt-3 transition-all uppercase shadow-md">🚀 Dar de Alta e Inyectar a Sheets</button>
+            </section>
 
-                <!-- PANEL OPERACIÓN DE PRODUCTO SELECCIONADO -->
-                <main id="panelProducto" class="hidden space-y-4">
-                    <div class="bg-gray-800/95 p-4 rounded-xl border border-gray-700 shadow-lg">
-                        <div class="flex justify-between items-start mb-1">
-                            <span id="cardCodigo" class="bg-blue-900 text-blue-300 text-xs font-bold px-2 py-0.5 rounded"></span>
-                            <span id="cardRubro" class="text-xs text-gray-400 font-medium"></span>
+            <!-- PANEL DE OPERACIÓN -->
+            <main id="panelProducto" class="hidden space-y-6">
+                <div class="bg-gray-800/95 p-4 rounded-xl border border-gray-700 shadow-lg">
+                    <div class="flex justify-between items-start mb-2">
+                        <span id="cardCodigo" class="bg-blue-900 text-blue-300 text-xs font-bold px-2 py-1 rounded"></span>
+                        <span id="cardRubro" class="text-xs text-gray-400 font-medium"></span>
+                    </div>
+                    <h2 id="cardDescripcion" class="text-lg font-bold text-white mb-3"></h2>
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="bg-gray-900/90 p-3 rounded-lg border border-gray-700">
+                            <p class="text-xs text-gray-400 uppercase mb-1">📍 Stock Lemos</p>
+                            <p id="cardStockLemos" class="text-xl font-bold text-blue-400">0</p>
                         </div>
-                        <h2 id="cardDescripcion" class="text-base font-bold text-white mb-3"></h2>
-                        <div class="grid grid-cols-2 gap-2 text-center">
-                            <div class="bg-gray-900/90 p-2.5 rounded-lg border border-gray-700">
-                                <p class="text-[10px] text-gray-400 uppercase">📍 Stock Lemos</p>
-                                <p id="cardStockLemos" class="text-lg font-bold text-blue-400">0</p>
-                            </div>
-                            <div class="bg-gray-900/90 p-2.5 rounded-lg border border-gray-700">
-                                <p class="text-[10px] text-gray-400 uppercase">📍 Stock Ozamis</p>
-                                <p id="cardStockOzamis" class="text-lg font-bold text-blue-400">0</p>
-                            </div>
-                            <div class="bg-gray-900/90 p-2.5 rounded-lg border border-gray-700 col-span-2">
-                                <p class="text-[10px] text-gray-400 uppercase">💸 Precio al Cobro</p>
-                                <p id="cardPrecioPesos" class="text-xl font-black text-emerald-400">$ 0,00</p>
-                                <p id="cardPrecioOriginal" class="text-[10px] text-gray-500 mt-0.5"></p>
-                            </div>
+                        <div class="bg-gray-900/90 p-3 rounded-lg border border-gray-700">
+                            <p class="text-xs text-gray-400 uppercase mb-1">📍 Stock Ozamis</p>
+                            <p id="cardStockOzamis" class="text-xl font-bold text-blue-400">0</p>
+                        </div>
+                        <div class="bg-gray-900/90 p-3 rounded-lg border border-gray-700 col-span-2">
+                            <p class="text-xs text-gray-400 uppercase mb-1">💸 Precio al Cobro</p>
+                            <p id="cardPrecioPesos" class="text-2xl font-black text-emerald-400">$ 0,00</p>
+                            <p id="cardPrecioOriginal" class="text-xs text-gray-500 mt-0.5"></p>
                         </div>
                     </div>
+                </div>
 
-                    <!-- MOVIMIENTOS STOCK -->
-                    <section class="bg-gray-800/95 p-3 rounded-xl border-l-4 border-green-500 shadow-lg space-y-2">
-                        <h3 class="font-bold text-white text-xs uppercase tracking-wider">🟩 Mover Stock</h3>
-                        <select id="movSucursal" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
-                            <option value="Stock Lemos">Sucursal Calle Lemos</option>
-                            <option value="Stock Ozamis">Sucursal Ozamis</option>
-                        </select>
-                        <input type="number" id="movCantidad" value="1" min="1" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-bold text-center text-white">
+                <!-- MOVIMIENTOS DIARIOS -->
+                <section class="bg-gray-800/95 p-4 rounded-xl border-l-4 border-green-500 shadow-lg">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-lg">🟩</span>
+                        <h3 class="font-bold text-white text-sm uppercase tracking-wider">Mover Stock</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div>
+                            <select id="movSucursal" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
+                                <option value="Stock Lemos">Sucursal Calle Lemos</option>
+                                <option value="Stock Ozamis">Sucursal Ozamis</option>
+                            </select>
+                        </div>
+                        <div>
+                            <input type="number" id="movCantidad" value="1" min="1" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm font-bold text-center text-white">
+                        </div>
                         <div class="grid grid-cols-3 gap-2">
                             <button onclick="ejecutarMovimiento('entrada')" class="bg-green-600 text-white font-bold py-2 rounded-lg text-xs uppercase">➕ Entrada</button>
                             <button onclick="ejecutarMovimiento('salida')" class="bg-red-600 text-white font-bold py-2 rounded-lg text-xs uppercase">➖ Salida</button>
                             <button onclick="ejecutarMovimiento('ajuste')" class="bg-amber-600 text-white font-bold py-2 rounded-lg text-xs uppercase">🟰 Ajuste</button>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- EDICIÓN Y BORRADO DE FICHA -->
-                    <section class="bg-gray-800/95 p-3 rounded-xl border-l-4 border-blue-500 shadow-lg space-y-2">
-                        <h3 class="font-bold text-white text-xs uppercase tracking-wider">🟦 Editar Ficha</h3>
-                        <input type="text" id="editDesc" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                <!-- EDICIÓN DE FICHA CON ELIMINAR PRODUCTO -->
+                <section class="bg-gray-800/95 p-4 rounded-xl border-l-4 border-blue-500 shadow-lg">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-lg">🟦</span>
+                        <h3 class="font-bold text-white text-sm uppercase tracking-wider">Editar Ficha</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <input type="text" id="editDesc" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
                         <div class="grid grid-cols-2 gap-2">
                             <select id="editRubro" class="bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white"></select>
                             <select id="editProv" class="bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white"></select>
@@ -209,141 +246,225 @@
                             <input type="number" id="editPrecio" step="0.01" class="bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-center text-white font-bold">
                             <input type="number" id="editCosto" step="0.01" class="bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-center text-white">
                         </div>
-                        <div class="grid grid-cols-2 gap-2 pt-1">
-                            <button onclick="guardarFichaProducto()" class="bg-blue-600 font-bold py-2 rounded-lg text-xs uppercase text-white shadow">💾 Guardar Ficha</button>
-                            <button onclick="borrarProductoActual()" class="bg-red-700 hover:bg-red-600 font-bold py-2 rounded-lg text-xs uppercase text-white shadow">🗑️ Eliminar Producto</button>
-                        </div>
-                    </section>
-                </main>
+                        <button onclick="guardarFichaProducto()" class="w-full bg-blue-600 font-bold py-2 rounded-lg text-xs uppercase text-white shadow-md">💾 Guardar Ficha</button>
+                        <button onclick="eliminarProductoActual()" class="w-full bg-rose-700 hover:bg-rose-800 text-white font-bold py-2 rounded-lg text-xs uppercase shadow-md transition-all flex items-center justify-center gap-1 mt-2">
+                            <span>🗑️</span> Eliminar Producto de la Empresa
+                        </button>
+                    </div>
+                </section>
+            </main>
 
-                <!-- BAJAR REPORTES PDF -->
-                <section class="bg-gray-800/95 p-3 rounded-xl border border-gray-700 shadow-lg space-y-2">
-                    <h3 class="font-bold text-white text-xs uppercase tracking-wider text-center">📋 Reportes PDF</h3>
-                    <select id="repRubro" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+            <!-- GENERACIÓN DE ARCHIVOS PDF DIRECTOS -->
+            <section class="mt-8 bg-gray-800/95 p-4 rounded-xl border border-gray-700 shadow-lg backdrop-blur-md">
+                <h3 class="font-bold text-white text-sm uppercase tracking-wider mb-3 text-center border-b border-gray-700 pb-2">📋 Descarga Directa de PDF</h3>
+                <div class="space-y-3">
+                    <select id="repRubro" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-sm text-white">
                         <option value="TODOS">-- Todos los Rubros --</option>
                     </select>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="descargarPDFDirecto('precios')" class="bg-emerald-700 font-bold py-2 rounded-lg text-xs text-white uppercase shadow">📥 Bajar Precios</button>
-                        <button onclick="descargarPDFDirecto('stock')" class="bg-indigo-700 font-bold py-2 rounded-lg text-xs text-white uppercase shadow">📥 Bajar Stock</button>
-                    </div>
-                </section>
-            </div>
-
-            <!-- PESTAÑA 2: HISTORIAL DE PRESUPUESTOS -->
-            <div id="vista-historial" class="hidden space-y-3">
-                <div class="bg-gray-800/95 p-3 rounded-xl border border-gray-700 shadow-lg space-y-2">
-                    <h3 class="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                        <span>📑</span> Historial de Presupuestos
-                    </h3>
-                    <input type="text" id="buscHistorial" oninput="renderizarHistorialPresupuestos()" placeholder="Buscar por Cliente o Fecha (Ej: 18/09/2026)..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
-                </div>
-                <div id="listaHistorialPresupuestos" class="space-y-2 max-h-[500px] overflow-y-auto"></div>
-            </div>
-
-            <!-- PESTAÑA 3: CALENDARIO Y ALERTAS -->
-            <div id="vista-calendario" class="hidden space-y-3">
-                <div class="bg-gray-800/95 p-3 rounded-xl border border-gray-700 shadow-lg space-y-2">
-                    <h3 class="font-bold text-amber-400 text-xs uppercase tracking-wider flex items-center gap-2">
-                        <span>📅</span> Agendar Evento / Aviso
-                    </h3>
-                    <input type="date" id="evFecha" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
-                    <input type="text" id="evTitulo" placeholder="Título (Ej: Service Robot Dolphin - Maipú)" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
-                    <textarea id="evDetalle" placeholder="Detalles de la obra o servicio..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white h-16"></textarea>
-                    <button onclick="guardarNuevoEvento()" class="w-full bg-amber-600 hover:bg-amber-500 font-bold py-2 rounded-lg text-xs text-white uppercase shadow">Agendar Evento</button>
-                </div>
-
-                <div id="listaEventosCalendario" class="space-y-2 max-h-[400px] overflow-y-auto"></div>
-            </div>
-
-            <!-- PESTAÑA 4: CHAT MULTISUCURSAL -->
-            <div id="vista-chat" class="hidden space-y-3">
-                <div class="bg-gray-800/95 p-3 rounded-xl border border-gray-700 shadow-lg space-y-2">
-                    <div class="grid grid-cols-2 gap-2">
-                        <select id="chatSucursal" class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white">
-                            <option value="Ozamis">Sucursal Ozamis</option>
-                            <option value="Lemos">Sucursal Lemos</option>
-                        </select>
-                        <input type="text" id="chatAutor" placeholder="Tu Nombre" value="Tommy" class="bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-xs text-white">
+                        <button onclick="descargarPDFDirecto('precios')" class="bg-emerald-700 hover:bg-emerald-600 font-bold py-2.5 rounded-lg text-xs text-white uppercase tracking-wider shadow">📥 Bajar Precios</button>
+                        <button onclick="descargarPDFDirecto('stock')" class="bg-indigo-700 hover:bg-indigo-600 font-bold py-2.5 rounded-lg text-xs text-white uppercase tracking-wider shadow">📥 Bajar Stock</button>
                     </div>
                 </div>
+            </section>
 
-                <div id="contenedorMensajesChat" class="bg-gray-900/90 border border-gray-700 rounded-xl p-3 h-80 overflow-y-auto space-y-2 text-xs">
-                    <!-- Mensajes del chat -->
+            <!-- FORO / CHAT INTER-SUCURSALES -->
+            <section class="mt-8 bg-gray-800/95 p-4 rounded-xl border border-gray-700 shadow-xl space-y-3">
+                <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                    <span class="text-xs font-bold text-sky-400 uppercase flex items-center gap-1">
+                        <span>💬</span> Foro Inter-Sucursales (Lemos / Ozamis)
+                    </span>
+                    <button onclick="cargarChat()" class="text-[10px] text-gray-400 hover:text-white">🔄 Actualizar</button>
                 </div>
 
-                <div class="flex gap-2">
-                    <input type="text" id="chatMensaje" placeholder="Escribí un mensaje..." onkeypress="if(event.key==='Enter') enviarMensajeChat()" class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
-                    <button onclick="enviarMensajeChat()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 rounded-xl text-xs uppercase shadow">Enviar</button>
+                <div id="contenedorMensajesChat" class="space-y-2 max-h-56 overflow-y-auto p-2 bg-gray-900/80 rounded-lg border border-gray-800 text-xs">
+                    <!-- Mensajes -->
                 </div>
-            </div>
+
+                <div class="space-y-2 pt-1">
+                    <div class="flex gap-2">
+                        <input type="text" id="chatUsuario" placeholder="Tu Nombre / Sucursal" class="w-1/3 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                        <input type="text" id="chatMensaje" placeholder="Escribí un mensaje..." class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                    </div>
+                    <button onclick="enviarMensajeChat()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 rounded-lg text-xs uppercase shadow">
+                        ✉️ Enviar al Foro
+                    </button>
+                </div>
+            </section>
 
         </div>
     </div>
 
-    <!-- MODAL PRESUPUESTO -->
-    <div id="modalPresupuesto" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden overflow-y-auto p-3">
+    <!-- MODAL PARA HISTÓRICO DE PRESUPUESTOS -->
+    <div id="modalHistorialPresupuestos" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden overflow-y-auto p-4">
         <div class="max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-4 my-6 space-y-4">
-            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
-                <h2 class="text-sm font-bold text-emerald-400 uppercase flex items-center gap-2"><span>📄</span> Nuevo Presupuesto</h2>
-                <button onclick="cerrarModalPresupuesto()" class="text-gray-400 hover:text-white font-bold text-lg">✕</button>
-            </div>
-            <input type="text" id="presupCliente" placeholder="Cliente / Obra / Contacto" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
-            
-            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700 space-y-2">
-                <p class="text-[10px] font-bold text-blue-400 uppercase">🔍 Inventario</p>
-                <input type="text" id="buscPresupuesto" oninput="renderizarBusquedaPresupuesto()" placeholder="Buscar producto..." class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-white">
-                <div id="resPresupuesto" class="space-y-1 max-h-32 overflow-y-auto"></div>
-                <div id="contAgregarInventario" class="hidden pt-2 border-t border-gray-800 space-y-2">
-                    <p id="presupProdSeleccionadoNombre" class="text-xs text-emerald-300 font-medium"></p>
-                    <div class="flex gap-2">
-                        <input type="number" id="presupCantInv" value="1" min="1" class="w-20 bg-gray-800 border border-gray-700 rounded-lg p-1.5 text-xs text-center text-white font-bold">
-                        <button onclick="confirmarAgregarInventario()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-lg text-xs uppercase">Agregar</button>
-                    </div>
-                </div>
+            <div class="flex justify-between items-center border-b border-gray-700 pb-3">
+                <h2 class="text-base font-bold text-indigo-400 uppercase tracking-wide flex items-center gap-2">
+                    <span>📂</span> Histórico de Presupuestos
+                </h2>
+                <button onclick="cerrarModalHistorial()" class="text-gray-400 hover:text-white font-bold text-lg px-2">✕</button>
             </div>
 
-            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700 space-y-2">
-                <p class="text-[10px] font-bold text-amber-400 uppercase">✍️ Item Manual</p>
-                <input type="text" id="manualDesc" placeholder="Descripción (Ej: Mano de obra)" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-white">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="manualCant" value="1" min="1" placeholder="Cant." class="bg-gray-800 border border-gray-700 rounded-lg p-1.5 text-xs text-center text-white font-bold">
-                    <input type="number" id="manualPrecio" placeholder="Precio ($)" step="0.01" class="bg-gray-800 border border-gray-700 rounded-lg p-1.5 text-xs text-center text-white font-bold">
-                </div>
-                <button onclick="agregarItemManual()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-1.5 rounded-lg text-xs uppercase">Agregar Manual</button>
+            <div class="relative">
+                <input type="text" id="buscarHistorial" oninput="renderizarHistorialPresupuestos()" placeholder="Buscar por Cliente o Fecha (Ej: 18/09/2026)..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div id="listaHistorialPresupuestos" class="space-y-2 max-h-80 overflow-y-auto">
+                <!-- Items listados -->
+            </div>
+
+            <button onclick="cerrarModalHistorial()" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-2 rounded-xl text-xs uppercase">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODAL PARA EMISIÓN DE PRESUPUESTOS -->
+    <div id="modalPresupuesto" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden overflow-y-auto p-4">
+        <div class="max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-4 my-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-3">
+                <h2 class="text-base font-bold text-emerald-400 uppercase tracking-wide flex items-center gap-2">
+                    <span>📄</span> Nuevo Presupuesto
+                </h2>
+                <button onclick="cerrarModalPresupuesto()" class="text-gray-400 hover:text-white font-bold text-lg px-2">✕</button>
             </div>
 
             <div>
-                <p class="text-xs font-bold text-gray-300 uppercase mb-2">📋 Renglones</p>
-                <div id="listaItemsPresupuesto" class="space-y-1 max-h-36 overflow-y-auto"></div>
-                <div class="flex justify-between items-center bg-gray-900 p-2.5 rounded-xl border border-gray-700 mt-2">
-                    <span class="text-xs font-bold text-gray-400">TOTAL:</span>
-                    <span id="presupTotalGeneral" class="text-lg font-black text-emerald-400">$ 0,00</span>
+                <label class="block text-xs font-medium text-gray-300 mb-1">Nombre / Datos del Cliente:</label>
+                <input type="text" id="presupCliente" placeholder="Ej: Juan Pérez / Piscina Maipú" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700 space-y-2">
+                <p class="text-xs font-bold text-blue-400 uppercase">🔍 Buscar e incluir del Inventario</p>
+                <div class="relative">
+                    <input type="text" id="buscPresupuesto" oninput="renderizarBusquedaPresupuesto()" placeholder="Buscar producto inventariado..." class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                </div>
+                <div id="resPresupuesto" class="space-y-1 max-h-40 overflow-y-auto"></div>
+                
+                <div id="contAgregarInventario" class="hidden pt-2 border-t border-gray-800 space-y-2">
+                    <p id="presupProdSeleccionadoNombre" class="text-xs text-emerald-300 font-medium"></p>
+                    <div class="flex gap-2">
+                        <input type="number" id="presupCantInv" value="1" min="1" placeholder="Cant." class="w-24 bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-center text-white font-bold">
+                        <button onclick="confirmarAgregarInventario()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-xs uppercase">Agregar al Presupuesto</button>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 border-t border-gray-700 pt-3">
-                <button onclick="cerrarModalPresupuesto()" class="bg-gray-700 text-gray-200 font-bold py-2 rounded-xl text-xs uppercase">Cancelar</button>
-                <button onclick="generarYGuardarPresupuesto()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-lg">💾 Guardar & PDF</button>
+            <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700 space-y-2">
+                <p class="text-xs font-bold text-amber-400 uppercase">✍️ Agregar Artículo / Servicio Manual</p>
+                <input type="text" id="manualDesc" placeholder="Descripción (Ej: Mano de obra / Instalación)" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-0.5">Cantidad:</label>
+                        <input type="number" id="manualCant" value="1" min="1" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-center text-white font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-400 mb-0.5">Precio Unitario ($):</label>
+                        <input type="number" id="manualPrecio" placeholder="0.00" step="0.01" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-center text-white font-bold">
+                    </div>
+                </div>
+                <button onclick="agregarItemManual()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 rounded-lg text-xs uppercase">➕ Agregar Item Manual</button>
+            </div>
+
+            <div>
+                <p class="text-xs font-bold text-gray-300 uppercase mb-2">📋 Detalle del Presupuesto</p>
+                <div id="listaItemsPresupuesto" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+                
+                <div class="flex justify-between items-center bg-gray-900 p-3 rounded-xl border border-gray-700 mt-3">
+                    <span class="text-xs font-bold uppercase text-gray-400">Total General:</span>
+                    <span id="presupTotalGeneral" class="text-xl font-black text-emerald-400">$ 0,00</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-700">
+                <button onclick="cerrarModalPresupuesto()" class="bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-2.5 rounded-xl text-xs uppercase">Cancelar</button>
+                <button onclick="generarPDFPresupuesto()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase shadow-lg flex items-center justify-center gap-1">
+                    <span>📥</span> Guardar y Descargar
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL POPUP ALERTAS DE HOY / 24 HORAS -->
-    <div id="modalAlertasEmergentes" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="max-w-sm w-full bg-gray-800 border-2 border-red-500 rounded-2xl shadow-2xl p-4 space-y-3">
-            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
-                <h3 class="text-sm font-bold text-red-400 uppercase tracking-wide flex items-center gap-1.5">
-                    <span>🚨</span> AVISOS PRÓXIMOS (24 HS)
-                </h3>
-                <button onclick="cerrarModalAlertas()" class="text-gray-400 hover:text-white font-bold text-lg">✕</button>
+    <!-- MODAL CREAR EVENTO/AVISO -->
+    <div id="modalCrearEvento" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden p-4">
+        <div class="max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-2xl p-4 my-10 space-y-3">
+            <h3 class="text-sm font-bold text-amber-400 uppercase border-b border-gray-700 pb-2">➕ Agendar Evento / Servicio</h3>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Fecha del Evento:</label>
+                <input type="date" id="evtFecha" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
             </div>
-            <p class="text-xs text-gray-300">Tenés eventos u obras agendadas para hoy o las próximas 24 horas:</p>
-            <div id="contenedorAlertasEmergentes" class="space-y-2 max-h-60 overflow-y-auto text-xs"></div>
-            <button onclick="cerrarModalAlertas()" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 rounded-xl text-xs uppercase tracking-wider">Entendido / Continuar</button>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Título / Trabajo:</label>
+                <input type="text" id="evtTitulo" placeholder="Ej: Servicio Robot Dolphin u Obra Riego" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Detalles / Cliente / Sucursal:</label>
+                <textarea id="evtDesc" placeholder="Dirección, cliente o detalles técnicos..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white h-20"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-2">
+                <button onclick="cerrarModalCrearEvento()" class="bg-gray-700 text-xs font-bold py-2 rounded-lg uppercase">Cancelar</button>
+                <button onclick="guardarEventoNuevo()" class="bg-amber-600 text-xs font-bold py-2 rounded-lg uppercase text-white">Agendar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CHECKLIST EVENTOS -->
+    <div id="modalChecklist" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden p-4">
+        <div class="max-w-md mx-auto bg-gray-800 border border-gray-700 rounded-2xl p-4 my-6 space-y-3">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                <h3 class="text-sm font-bold text-teal-400 uppercase">📋 Checklist de Servicios y Obras</h3>
+                <button onclick="cerrarModalChecklist()" class="text-gray-400 font-bold">✕</button>
+            </div>
+            <div id="listaChecklistEventos" class="space-y-2 max-h-96 overflow-y-auto"></div>
+            <button onclick="cerrarModalChecklist()" class="w-full bg-gray-700 text-xs font-bold py-2 rounded-lg uppercase">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODAL ALERTA EMERGENTE (SALTA 24H ANTES / EL DÍA) -->
+    <div id="modalAlertaEmergente" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden p-4">
+        <div class="max-w-md mx-auto bg-rose-950/90 border-2 border-rose-500 rounded-2xl p-4 my-16 space-y-3 shadow-2xl text-center">
+            <span class="text-4xl">🚨</span>
+            <h3 class="text-lg font-black text-rose-300 uppercase tracking-wide">Aviso Importante / Coordinación</h3>
+            <p class="text-xs text-gray-300">Hay eventos o servicios programados en las próximas 24 horas o para el día de hoy:</p>
+            <div id="contenidoAlertasUrgentes" class="space-y-2 text-left max-h-60 overflow-y-auto p-2 bg-black/50 rounded-lg"></div>
+            <button onclick="cerrarModalAlertas()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase shadow-lg">Entendido / Continuar al Sistema</button>
         </div>
     </div>
 
     <script>
+        function renderizarCotizacionesInputs() {
+            const cont = document.getElementById('contenedorCotizaciones');
+            cont.innerHTML = bd_monedas.filter(m => m !== 'ARS').map(moneda => {
+                const claveStorage = `cotiz_${moneda.toLowerCase().replace(/\s+/g, '_')}`;
+                const valGuardado = localStorage.getItem(claveStorage) || "1350";
+                cotizaciones[moneda] = parseFloat(valGuardado);
+
+                return `
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-300 font-medium">${moneda}:</span>
+                        <div class="flex items-center gap-1">
+                            <span class="text-emerald-400 font-bold">$</span>
+                            <input type="number" value="${valGuardado}" oninput="actualizarCotizacion('cotiz_${moneda.toLowerCase().replace(/\s+/g, '_')}', '${moneda}', this.value)" class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-center font-bold text-emerald-400 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function actualizarCotizacion(clave, moneda, valor) {
+            localStorage.setItem(clave, valor);
+            cotizaciones[moneda] = parseFloat(valor) || 1;
+            actualizarPreciosEnPantalla();
+            renderizarBusqueda();
+            renderizarItemsPresupuesto();
+        }
+
+        function obtenerPrecioPesosCalculado(prod) {
+            const precioBase = parseFloat(prod.Precio) || 0;
+            const moneda = prod['Moneda (ARS/USD)'] || 'ARS';
+            if (moneda === 'ARS') return precioBase;
+            const cot = cotizaciones[moneda] || 1;
+            return precioBase * cot;
+        }
+
         async function inicializarSistema() {
             try {
                 const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'getInicial' }) });
@@ -351,94 +472,56 @@
                 bd_productos = api.productos || [];
                 bd_rubros = api.rubros || [];
                 bd_proveedores = api.proveedores || [];
-                bd_monedas = api.monedas || [];
+                
+                if (api.monedas && api.monedas.length > 0) {
+                    const extraMonedas = api.monedas.map(m => m.Nombre);
+                    bd_monedas = Array.from(new Set([...bd_monedas, ...extraMonedas]));
+                }
+                
                 bd_presupuestos = api.presupuestos || [];
                 bd_eventos = api.eventos || [];
                 bd_chat = api.chat || [];
 
+                renderizarCotizacionesInputs();
                 actualizarMenusDesplegables();
-                renderizarCotizacionesHeader();
-                verificarAlertas24hs();
-                renderizarChat();
-            } catch (e) { alert("Error al conectar con Google Sheets."); }
+                actualizarResumenEventos();
+                cargarChat();
+                verificarAlertasEmergentes();
+            } catch (e) { alert("Error de conexión al cargar datos."); }
         }
 
-        function cambiarPestaña(pest) {
-            ['inventario', 'historial', 'calendario', 'chat'].forEach(p => {
-                document.getElementById(`vista-${p}`).classList.add('hidden');
-                document.getElementById(`tab-${p}`).className = "py-2 rounded-lg text-gray-400 hover:text-white";
-            });
-            document.getElementById(`vista-${pest}`).classList.remove('hidden');
-            document.getElementById(`tab-${pest}`).className = "py-2 rounded-lg bg-blue-600 text-white shadow";
-
-            if(pest === 'historial') renderizarHistorialPresupuestos();
-            if(pest === 'calendario') renderizarCalendario();
-            if(pest === 'chat') renderizarChat();
-        }
-
-        function renderizarCotizacionesHeader() {
-            const cont = document.getElementById('contenedorCotizaciones');
-            if (bd_monedas.length === 0) {
-                bd_monedas = [
-                    { Nombre: 'ARS', Cotización: 1 },
-                    { Nombre: 'USD Oficial', Cotización: 1350 },
-                    { Nombre: 'USD Nataclor', Cotización: 1350 },
-                    { Nombre: 'USD Vulcano', Cotización: 1350 }
-                ];
+        function cambiarModo(modo) {
+            const btnB = document.getElementById('btnModoBuscar');
+            const btnC = document.getElementById('btnModoCrear');
+            const secB = document.getElementById('seccionBuscador');
+            const secC = document.getElementById('seccionAltaNueva');
+            if (modo === 'buscar') {
+                btnB.className = "bg-blue-600 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
+                btnC.className = "bg-gray-800/90 border border-gray-700 text-gray-400 font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
+                secB.classList.remove('hidden'); secC.classList.add('hidden');
+            } else {
+                btnC.className = "bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
+                btnB.className = "bg-gray-800/90 border border-gray-700 text-gray-400 font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
+                secC.classList.remove('hidden'); secB.classList.add('hidden');
+                document.getElementById('panelProducto').classList.add('hidden');
             }
-
-            cont.innerHTML = bd_monedas.filter(m => m.Nombre !== 'ARS').map(m => `
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-300">${m.Nombre}:</span>
-                    <div class="flex items-center gap-1">
-                        <span class="text-emerald-400 font-bold">$</span>
-                        <input type="number" value="${m.Cotización || 1350}" onchange="actualizarCotizacionServidor('${m.Nombre}', this.value)" class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-center font-bold text-emerald-400 focus:outline-none">
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        async function actualizarCotizacionServidor(nombre, valor) {
-            const m = bd_monedas.find(x => x.Nombre === nombre);
-            if (m) m.Cotización = parseFloat(valor) || 1;
-            renderizarBusqueda();
-            actualizarPreciosEnPantalla();
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'actualizarCotizacion', nombre: nombre, cotizacion: parseFloat(valor) || 1 }) });
-        }
-
-        async function crearAuxiliarMoneda() {
-            const nombre = prompt("Nombre de la nueva moneda (Ej: USD Importado):");
-            if(!nombre) return;
-            const cotiz = parseFloat(prompt("Cotización inicial en pesos ($):", "1350")) || 1350;
-            bd_monedas.push({ Nombre: nombre, Cotización: cotiz });
-            actualizarMenusDesplegables();
-            renderizarCotizacionesHeader();
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'agregarAuxiliar', tabla: 'Monedas', nombre: nombre, cotizacion: cotiz }) });
         }
 
         function actualizarMenusDesplegables() {
-            const rSelect = document.getElementById('editRubro'); const pSelect = document.getElementById('editProv'); const mSelect = document.getElementById('editMoneda');
-            const nrSelect = document.getElementById('nuevoRubro'); const npSelect = document.getElementById('nuevoProv'); const nmSelect = document.getElementById('nuevoMoneda');
+            const rSelect = document.getElementById('editRubro'); const pSelect = document.getElementById('editProv');
+            const nrSelect = document.getElementById('nuevoRubro'); const npSelect = document.getElementById('nuevoProv');
             const repSelect = document.getElementById('repRubro');
+            const editMoneda = document.getElementById('editMoneda');
+            const nuevoMoneda = document.getElementById('nuevoMoneda');
 
             const rHtml = bd_rubros.map(r => `<option value="${r.Nombre}">${r.Nombre}</option>`).join('');
             const pHtml = bd_proveedores.map(p => `<option value="${p.Nombre}">${p.Nombre}</option>`).join('');
-            const mHtml = bd_monedas.map(m => `<option value="${m.Nombre}">${m.Nombre}</option>`).join('');
+            const mHtml = bd_monedas.map(m => `<option value="${m}">${m}</option>`).join('');
 
-            rSelect.innerHTML = rHtml; nrSelect.innerHTML = rHtml;
+            rSelect.innerHTML = rHtml; nrSelect.innerHTML = rHtml; 
             pSelect.innerHTML = pHtml; npSelect.innerHTML = pHtml;
-            mSelect.innerHTML = mHtml; nmSelect.innerHTML = mHtml;
+            editMoneda.innerHTML = mHtml; nuevoMoneda.innerHTML = mHtml;
             repSelect.innerHTML = '<option value="TODOS">-- Todos los Rubros --</option>' + rHtml;
-        }
-
-        function obtenerPrecioPesosCalculado(prod) {
-            const precioBase = prod.Precio || 0;
-            const monedaNombre = prod['Moneda (ARS/USD)'] || 'ARS';
-            if (monedaNombre === 'ARS') return precioBase;
-
-            const m = bd_monedas.find(x => x.Nombre === monedaNombre);
-            const cotiz = m ? (parseFloat(m.Cotización) || 1) : 1;
-            return precioBase * cotiz;
         }
 
         function renderizarBusqueda() {
@@ -453,11 +536,16 @@
                 const rubro = p.Rubro ? p.Rubro.toLowerCase() : '';
                 return terminos.every(t => desc.includes(t) || id.includes(t) || rubro.includes(t));
             });
+            
+            if(filtrados.length === 0) {
+                contenedor.innerHTML = `<div class="text-xs text-gray-900 font-bold text-center py-2 bg-white/80 rounded-lg">Sin coincidencia.</div>`;
+                return;
+            }
 
             contenedor.innerHTML = filtrados.slice(0, 15).map(p => `
-                <div onclick="seleccionarProducto('${p.ID}')" class="bg-gray-800 border border-gray-700 rounded-lg p-2.5 cursor-pointer hover:bg-gray-700 transition shadow">
+                <div onclick="seleccionarProducto('${p.ID}')" class="bg-gray-800 border border-gray-700 rounded-lg p-3 cursor-pointer hover:bg-gray-700 hover:border-blue-500 transition shadow-md">
                     <div class="flex justify-between font-bold text-xs text-blue-400"><span>${p.ID}</span><span class="text-gray-500">${p.Rubro || 'Gral'}</span></div>
-                    <div class="text-xs text-white mt-1 font-medium">${p.Descripción || 'Sin descripción'}</div>
+                    <div class="text-sm text-white mt-1 font-medium">${p.Descripción || 'Sin descripción'}</div>
                 </div>
             `).join('');
         }
@@ -490,24 +578,39 @@
             if (!productoSeleccionado) return;
             let finalArs = obtenerPrecioPesosCalculado(productoSeleccionado);
             let moneda = productoSeleccionado['Moneda (ARS/USD)'] || 'ARS';
-            document.getElementById('cardPrecioOriginal').innerText = moneda === 'ARS' ? `Base: ARS` : `Base: ${moneda} $${(productoSeleccionado.Precio || 0).toFixed(2)}`;
+            
+            let etiquetaBase = `Base: ARS`;
+            if (moneda !== 'ARS') {
+                etiquetaBase = `Base: ${moneda} $${(parseFloat(productoSeleccionado.Precio) || 0).toFixed(2)}`;
+            }
+
+            document.getElementById('cardPrecioOriginal').innerText = etiquetaBase;
             document.getElementById('cardPrecioPesos').innerText = `$ ${finalArs.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
         }
 
-        async function borrarProductoActual() {
-            if(!productoSeleccionado) return;
-            if(!confirm(`¿Seguro que querés ELIMINAR el producto ${productoSeleccionado.Descripción} (${productoSeleccionado.ID})?`)) return;
+        async function eliminarProductoActual() {
+            if (!productoSeleccionado) return;
+            if (!confirm(`¿Estás seguro de que querés eliminar el producto "${productoSeleccionado.Descripción}" (ID: ${productoSeleccionado.ID}) del sistema?`)) {
+                return;
+            }
 
-            const idABorrar = productoSeleccionado.ID;
-            bd_productos = bd_productos.filter(p => p.ID.toString() !== idABorrar.toString());
-            document.getElementById('panelProducto').classList.add('hidden');
-            productoSeleccionado = null;
-            alert("Producto eliminado.");
-
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'borrarProducto', id: idABorrar }) });
+            try {
+                const res = await fetch(WEB_APP_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ action: 'eliminarProducto', id: productoSeleccionado.ID }) 
+                });
+                const rta = await res.json();
+                if (rta.success) {
+                    alert("Producto eliminado de la lista.");
+                    bd_productos = bd_productos.filter(p => p.ID.toString() !== productoSeleccionado.ID.toString());
+                    productoSeleccionado = null;
+                    document.getElementById('panelProducto').classList.add('hidden');
+                    renderizarBusqueda();
+                }
+            } catch(e) { alert("Error al eliminar."); }
         }
 
-        /* --- PRESUPUESTOS E HISTORIAL --- */
+        /* --- PRESUPUESTOS E HISTÓRICO --- */
 
         function abrirModalPresupuesto() {
             document.getElementById('modalPresupuesto').classList.remove('hidden');
@@ -519,12 +622,15 @@
             renderizarItemsPresupuesto();
         }
 
-        function cerrarModalPresupuesto() { document.getElementById('modalPresupuesto').classList.add('hidden'); }
+        function cerrarModalPresupuesto() {
+            document.getElementById('modalPresupuesto').classList.add('hidden');
+        }
 
         function renderizarBusquedaPresupuesto() {
             const inputText = document.getElementById('buscPresupuesto').value.toLowerCase().trim();
             const contenedor = document.getElementById('resPresupuesto');
             if (!inputText) { contenedor.innerHTML = ''; return; }
+            
             const terminos = inputText.split(/\s+/);
             const filtrados = bd_productos.filter(p => {
                 const desc = p.Descripción ? p.Descripción.toLowerCase() : '';
@@ -533,8 +639,8 @@
             });
 
             contenedor.innerHTML = filtrados.slice(0, 5).map(p => `
-                <div onclick="preSeleccionarPresupuesto('${p.ID}')" class="bg-gray-800 border border-gray-700 rounded p-1.5 cursor-pointer hover:bg-gray-700 flex justify-between text-xs">
-                    <span class="text-white">${p.Descripción}</span>
+                <div onclick="preSeleccionarPresupuesto('${p.ID}')" class="bg-gray-800 border border-gray-700 rounded p-2 cursor-pointer hover:bg-gray-700 flex justify-between items-center text-xs">
+                    <span class="text-white font-medium">${p.Descripción}</span>
                     <span class="text-blue-400 font-bold">${p.ID}</span>
                 </div>
             `).join('');
@@ -553,7 +659,13 @@
             if(!prodSeleccionadoPresupuesto) return;
             const cant = parseInt(document.getElementById('presupCantInv').value) || 1;
             let unitarioArs = obtenerPrecioPesosCalculado(prodSeleccionadoPresupuesto);
-            itemsPresupuesto.push({ descripcion: prodSeleccionadoPresupuesto.Descripción, cantidad: cant, precioUnitario: unitarioArs });
+
+            itemsPresupuesto.push({
+                descripcion: prodSeleccionadoPresupuesto.Descripción,
+                cantidad: cant,
+                precioUnitario: unitarioArs
+            });
+
             prodSeleccionadoPresupuesto = null;
             document.getElementById('contAgregarInventario').classList.add('hidden');
             document.getElementById('presupCantInv').value = 1;
@@ -564,80 +676,124 @@
             const desc = document.getElementById('manualDesc').value.trim();
             const cant = parseInt(document.getElementById('manualCant').value) || 1;
             const precio = parseFloat(document.getElementById('manualPrecio').value) || 0;
-            if(!desc) { alert("Ingresá la descripción."); return; }
-            itemsPresupuesto.push({ descripcion: desc, cantidad: cant, precioUnitario: precio });
+
+            if(!desc) { alert("Ingresá la descripción del artículo manual."); return; }
+
+            itemsPresupuesto.push({
+                descripcion: desc,
+                cantidad: cant,
+                precioUnitario: precio
+            });
+
             document.getElementById('manualDesc').value = '';
             document.getElementById('manualCant').value = '1';
             document.getElementById('manualPrecio').value = '';
             renderizarItemsPresupuesto();
         }
 
-        function eliminarItemPresupuesto(index) { itemsPresupuesto.splice(index, 1); renderizarItemsPresupuesto(); }
+        function eliminarItemPresupuesto(index) {
+            itemsPresupuesto.splice(index, 1);
+            renderizarItemsPresupuesto();
+        }
 
         function renderizarItemsPresupuesto() {
             const contenedor = document.getElementById('listaItemsPresupuesto');
             if(itemsPresupuesto.length === 0) {
-                contenedor.innerHTML = `<div class="text-xs text-gray-500 text-center py-2">Sin items.</div>`;
+                contenedor.innerHTML = `<div class="text-xs text-gray-500 text-center py-2 bg-gray-900/50 rounded-lg">No hay items agregados aún.</div>`;
                 document.getElementById('presupTotalGeneral').innerText = `$ 0,00`;
                 return;
             }
+
             let totalAcc = 0;
             contenedor.innerHTML = itemsPresupuesto.map((item, idx) => {
                 const subtotal = item.cantidad * item.precioUnitario;
                 totalAcc += subtotal;
                 return `
-                    <div class="bg-gray-900 p-2 rounded border border-gray-700 flex justify-between items-center text-xs">
-                        <div>
+                    <div class="bg-gray-900 p-2 rounded-lg border border-gray-700 flex justify-between items-center text-xs">
+                        <div class="flex-1 pr-2">
                             <p class="font-bold text-white">${item.descripcion}</p>
                             <p class="text-[10px] text-gray-400">${item.cantidad} u. x $ ${item.precioUnitario.toLocaleString('es-AR', {minimumFractionDigits: 2})}</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="font-bold text-emerald-400">$ ${subtotal.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span>
-                            <button onclick="eliminarItemPresupuesto(${idx})" class="text-red-400 font-bold px-1">✕</button>
+                            <button onclick="eliminarItemPresupuesto(${idx})" class="text-red-400 font-bold hover:text-red-300 px-1">✕</button>
                         </div>
                     </div>
                 `;
             }).join('');
+
             document.getElementById('presupTotalGeneral').innerText = `$ ${totalAcc.toLocaleString('es-AR', {minimumFractionDigits: 2})}`;
         }
 
-        async function generarYGuardarPresupuesto() {
-            if(itemsPresupuesto.length === 0) { alert("Agregá al menos un artículo."); return; }
+        async function generarPDFPresupuesto() {
+            if(itemsPresupuesto.length === 0) {
+                alert("Agregá al menos un artículo para generar el presupuesto.");
+                return;
+            }
+
             const cliente = document.getElementById('presupCliente').value.trim() || 'Cliente General';
             const fecha = new Date().toLocaleDateString('es-AR');
-            const totalGen = itemsPresupuesto.reduce((acc, i) => acc + (i.cantidad * i.precioUnitario), 0);
-            const idPresupuesto = "PRES-" + Date.now();
+            const idPresupuesto = 'PRES-' + Date.now();
 
-            const nuevoPresupuesto = { ID: idPresupuesto, Fecha: fecha, Cliente: cliente, Total: totalGen, Items: itemsPresupuesto };
-            bd_presupuestos.unshift(nuevoPresupuesto);
+            let totalAcc = itemsPresupuesto.reduce((acc, it) => acc + (it.cantidad * it.precioUnitario), 0);
 
-            descargarPDFPresupuestoObj(nuevoPresupuesto);
+            const presupuestoObjeto = {
+                id: idPresupuesto,
+                fecha: fecha,
+                cliente: cliente,
+                items: itemsPresupuesto,
+                total: totalAcc
+            };
+
+            // Inyectar a Sheets
+            try {
+                fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarPresupuesto', data: presupuestoObjeto }) });
+                bd_presupuestos.unshift(presupuestoObjeto);
+            } catch(e){}
+
+            descargarPDFPresupuestoEstructura(cliente, fecha, itemsPresupuesto);
             cerrarModalPresupuesto();
-
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarPresupuesto', data: nuevoPresupuesto }) });
         }
 
-        function descargarPDFPresupuestoObj(p) {
+        function descargarPDFPresupuestoEstructura(cliente, fecha, items) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
 
-            doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(30, 58, 138); doc.text("PROYECTO AGUA", 14, 18);
-            doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.setTextColor(71, 85, 105);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(22);
+            doc.setTextColor(30, 58, 138); 
+            doc.text("PROYECTO AGUA", 14, 18);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(71, 85, 105);
             doc.text("Domicilio: Ozamis 186 - Lemos 120", 14, 24);
             doc.text("Teléfono: 2616140949 - 4814681", 14, 29);
 
-            doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.setTextColor(15, 23, 42); doc.text("PRESUPUESTO", 140, 18);
-            doc.setFontSize(9); doc.setFont("helvetica", "normal");
-            doc.text(`Fecha: ${p.Fecha}`, 140, 24); doc.text(`Cliente: ${p.Cliente}`, 14, 38);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.setTextColor(15, 23, 42);
+            doc.text("PRESUPUESTO", 140, 18);
 
-            doc.setLineWidth(0.5); doc.setDrawColor(203, 213, 225); doc.line(14, 42, 196, 42);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Fecha: ${fecha}`, 140, 24);
+            doc.text(`Cliente: ${cliente}`, 14, 38);
 
-            let items = typeof p.Items === 'string' ? JSON.parse(p.Items) : p.Items;
+            doc.setLineWidth(0.5);
+            doc.setDrawColor(203, 213, 225);
+            doc.line(14, 42, 196, 42);
+
             let totalGeneral = 0;
             const filas = items.map(item => {
-                const sub = item.cantidad * item.precioUnitario;
-                totalGeneral += sub;
-                return [item.descripcion, `${item.cantidad}`, `$ ${item.precioUnitario.toLocaleString('es-AR', {minimumFractionDigits: 2})}`, `$ ${sub.toLocaleString('es-AR', {minimumFractionDigits: 2})}`];
+                const subtotal = item.cantidad * item.precioUnitario;
+                totalGeneral += subtotal;
+                return [
+                    item.descripcion,
+                    `${item.cantidad}`,
+                    `$ ${item.precioUnitario.toLocaleString('es-AR', {minimumFractionDigits: 2})}`,
+                    `$ ${subtotal.toLocaleString('es-AR', {minimumFractionDigits: 2})}`
+                ];
             });
 
             doc.autoTable({
@@ -647,153 +803,234 @@
                 theme: 'striped',
                 headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
                 styles: { fontSize: 9, cellPadding: 3 },
-                columnStyles: { 0: { cellWidth: 'auto' }, 1: { halign: 'center', cellWidth: 20 }, 2: { halign: 'right', cellWidth: 35 }, 3: { halign: 'right', cellWidth: 35, fontStyle: 'bold' } }
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { halign: 'center', cellWidth: 20 },
+                    2: { halign: 'right', cellWidth: 35 },
+                    3: { halign: 'right', cellWidth: 35, fontStyle: 'bold' }
+                }
             });
 
             const finalY = doc.lastAutoTable.finalY + 8;
-            doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(16, 185, 129);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(16, 185, 129); 
             doc.text(`TOTAL: $ ${totalGeneral.toLocaleString('es-AR', {minimumFractionDigits: 2})}`, 196, finalY, { align: "right" });
 
-            doc.setFontSize(8); doc.setFont("helvetica", "italic"); doc.setTextColor(148, 163, 184);
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(148, 163, 184);
             doc.text("Presupuesto válido por 5 días. Gracias por su confianza.", 14, finalY + 12);
 
-            doc.save(`presupuesto_${p.Cliente.replace(/[^a-zA-Z0-9]/g, '_')}_${p.Fecha.replace(/\//g, '-')}.pdf`);
+            const nombreArchivo = `presupuesto_${cliente.replace(/[^a-zA-Z0-9]/g, '_')}_${fecha.replace(/\//g, '-')}.pdf`;
+            doc.save(nombreArchivo);
+        }
+
+        /* --- HISTORIAL DE PRESUPUESTOS --- */
+
+        function abrirModalHistorialPresupuestos() {
+            document.getElementById('modalHistorialPresupuestos').classList.remove('hidden');
+            renderizarHistorialPresupuestos();
+        }
+
+        function cerrarModalHistorial() {
+            document.getElementById('modalHistorialPresupuestos').classList.add('hidden');
         }
 
         function renderizarHistorialPresupuestos() {
-            const filtro = document.getElementById('buscHistorial').value.toLowerCase().trim();
-            const cont = document.getElementById('listaHistorialPresupuestos');
+            const filtro = document.getElementById('buscarHistorial').value.toLowerCase().trim();
+            const contenedor = document.getElementById('listaHistorialPresupuestos');
 
             const filtrados = bd_presupuestos.filter(p => {
-                const cli = (p.Cliente || '').toLowerCase();
-                const fec = (p.Fecha || '').toLowerCase();
+                const cli = p.Cliente ? p.Cliente.toLowerCase() : '';
+                const fec = p.Fecha ? p.Fecha.toLowerCase() : '';
                 return cli.includes(filtro) || fec.includes(filtro);
             });
 
-            if(filtrados.length === 0) {
-                cont.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No hay presupuestos guardados.</div>`;
+            if (filtrados.length === 0) {
+                contenedor.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">No se encontraron presupuestos guardados.</div>`;
                 return;
             }
 
-            cont.innerHTML = filtrados.map(p => `
-                <div class="bg-gray-800 border border-gray-700 p-3 rounded-xl flex justify-between items-center text-xs shadow">
-                    <div>
-                        <p class="font-bold text-white text-sm">${p.Cliente}</p>
-                        <p class="text-gray-400 text-[10px]">Fecha: ${p.Fecha} - Total: <span class="text-emerald-400 font-bold">$ ${(p.Total||0).toLocaleString('es-AR')}</span></p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick='descargarPDFPresupuestoObj(${JSON.stringify(p)})' class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] uppercase">📥 PDF</button>
-                        <button onclick="borrarPresupuestoHistorial('${p.ID}')" class="bg-red-700 hover:bg-red-600 text-white font-bold px-2 py-1.5 rounded-lg text-[10px]">🗑️</button>
-                    </div>
-                </div>
-            `).join('');
-        }
+            contenedor.innerHTML = filtrados.map(p => {
+                let itemsList = typeof p.ItemsJSON === 'string' ? JSON.parse(p.ItemsJSON || '[]') : (p.items || []);
+                let tot = parseFloat(p.Total || p.total || 0);
 
-        async function borrarPresupuestoHistorial(id) {
-            if(!confirm("¿Seguro que querés eliminar este presupuesto?")) return;
-            bd_presupuestos = bd_presupuestos.filter(p => p.ID.toString() !== id.toString());
-            renderizarHistorialPresupuestos();
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'borrarPresupuesto', id: id }) });
-        }
-
-        /* --- CALENDARIO Y ALERTAS --- */
-
-        async function guardarNuevoEvento() {
-            const fecha = document.getElementById('evFecha').value;
-            const titulo = document.getElementById('evTitulo').value.trim();
-            const detalle = document.getElementById('evDetalle').value.trim();
-
-            if(!fecha || !titulo) { alert("Ingresá Fecha y Título."); return; }
-
-            const ev = { ID: "EV-" + Date.now(), Fecha: fecha, Titulo: titulo, Detalle: detalle, Cumplido: false };
-            bd_eventos.push(ev);
-            renderizarCalendario();
-            document.getElementById('evFecha').value = '';
-            document.getElementById('evTitulo').value = '';
-            document.getElementById('evDetalle').value = '';
-
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarEvento', data: ev }) });
-        }
-
-        function renderizarCalendario() {
-            const cont = document.getElementById('listaEventosCalendario');
-            if(bd_eventos.length === 0) {
-                cont.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No hay avisos ni obras agendadas.</div>`;
-                return;
-            }
-
-            cont.innerHTML = bd_eventos.sort((a,b) => new Date(a.Fecha) - new Date(b.Fecha)).map(e => `
-                <div class="bg-gray-800 border ${e.Cumplido ? 'border-emerald-600/50 opacity-60' : 'border-amber-500/50'} p-3 rounded-xl flex justify-between items-start text-xs shadow">
-                    <div class="flex items-start gap-2">
-                        <input type="checkbox" ${e.Cumplido ? 'checked' : ''} onchange="toggleEventoCumplido('${e.ID}', this.checked)" class="mt-1 w-4 h-4 rounded text-amber-500">
+                return `
+                    <div class="bg-gray-900 border border-gray-700 p-3 rounded-xl flex justify-between items-center text-xs">
                         <div>
-                            <p class="font-bold text-white ${e.Cumplido ? 'line-through text-gray-400' : ''}">${e.Titulo}</p>
-                            <p class="text-[10px] text-amber-400 font-bold">📆 ${e.Fecha}</p>
-                            <p class="text-gray-300 text-[11px] mt-1">${e.Detalle || ''}</p>
+                            <p class="font-bold text-white text-sm">${p.Cliente || p.cliente}</p>
+                            <p class="text-[10px] text-gray-400">📅 ${p.Fecha || p.fecha} | Total: <span class="text-emerald-400 font-bold">$ ${tot.toLocaleString('es-AR', {minimumFractionDigits: 2})}</span></p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick='redescargarPDFPresupuesto("${p.Cliente || p.cliente}", "${p.Fecha || p.fecha}", ${JSON.stringify(itemsList)})' class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2 py-1 rounded text-[10px] uppercase">📥 PDF</button>
+                            <button onclick='eliminarPresupuestoGuardado("${p.ID || p.id}")' class="bg-rose-700 hover:bg-rose-600 text-white font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
                         </div>
                     </div>
-                    <button onclick="borrarEvento('${e.ID}')" class="text-red-400 hover:text-red-300 font-bold text-xs px-1">🗑️</button>
+                `;
+            }).join('');
+        }
+
+        function redescargarPDFPresupuesto(cliente, fecha, items) {
+            descargarPDFPresupuestoEstructura(cliente, fecha, items);
+        }
+
+        async function eliminarPresupuestoGuardado(id) {
+            if(!confirm("¿Eliminar este presupuesto del historial?")) return;
+            try {
+                fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'eliminarPresupuesto', id: id }) });
+                bd_presupuestos = bd_presupuestos.filter(p => (p.ID || p.id) != id);
+                renderizarHistorialPresupuestos();
+            } catch(e){}
+        }
+
+        /* --- CALENDARIO, EVENTOS Y CHECKLIST --- */
+
+        function abrirModalCrearEvento() {
+            document.getElementById('modalCrearEvento').classList.remove('hidden');
+        }
+
+        function cerrarModalCrearEvento() {
+            document.getElementById('modalCrearEvento').classList.add('hidden');
+        }
+
+        async function guardarEventoNuevo() {
+            const fecha = document.getElementById('evtFecha').value;
+            const titulo = document.getElementById('evtTitulo').value.trim();
+            const desc = document.getElementById('evtDesc').value.trim();
+
+            if(!fecha || !titulo) { alert("Completá fecha y título del evento."); return; }
+
+            const nuevoEvt = { id: 'EVT-' + Date.now(), fecha: fecha, titulo: titulo, descripcion: desc, completado: false };
+            
+            try {
+                fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarEvento', data: nuevoEvt }) });
+                bd_eventos.push({ ID: nuevoEvt.id, Fecha: fecha, Titulo: titulo, Descripcion: desc, Completado: false });
+                cerrarModalCrearEvento();
+                actualizarResumenEventos();
+                alert("Evento agendado.");
+            } catch(e){}
+        }
+
+        function abrirModalChecklist() {
+            document.getElementById('modalChecklist').classList.remove('hidden');
+            renderizarChecklist();
+        }
+
+        function cerrarModalChecklist() {
+            document.getElementById('modalChecklist').classList.add('hidden');
+        }
+
+        function renderizarChecklist() {
+            const contenedor = document.getElementById('listaChecklistEventos');
+            const ordenados = [...bd_eventos].sort((a,b) => new Date(a.Fecha) - new Date(b.Fecha));
+
+            if(ordenados.length === 0) {
+                contenedor.innerHTML = `<div class="text-xs text-gray-400 text-center py-4">No hay eventos agendados.</div>`;
+                return;
+            }
+
+            contenedor.innerHTML = ordenados.map(ev => {
+                const comp = ev.Completado === true || ev.Completado === "TRUE" || ev.Completado === "true";
+                return `
+                    <div class="bg-gray-900 border border-gray-700 p-2.5 rounded-xl flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2.5 flex-1 pr-2">
+                            <input type="checkbox" ${comp ? 'checked' : ''} onchange="toggleCheckEvento('${ev.ID || ev.id}', this.checked)" class="w-4 h-4 rounded text-teal-600 focus:ring-0 cursor-pointer">
+                            <div class="${comp ? 'line-through text-gray-500' : 'text-white'}">
+                                <p class="font-bold">${ev.Titulo || ev.titulo}</p>
+                                <p class="text-[10px] text-gray-400">📅 ${ev.Fecha || ev.fecha} | ${ev.Descripcion || ev.descripcion || 'Sin detalle'}</p>
+                            </div>
+                        </div>
+                        <button onclick="eliminarEvento('${ev.ID || ev.id}')" class="text-rose-400 hover:text-rose-300 font-bold px-1.5">🗑️</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function toggleCheckEvento(id, checked) {
+            const ev = bd_eventos.find(e => (e.ID || e.id) == id);
+            if(ev) ev.Completado = checked;
+            actualizarResumenEventos();
+            try {
+                fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'actualizarEventoCheck', id: id, completado: checked }) });
+            } catch(e){}
+        }
+
+        async function eliminarEvento(id) {
+            if(!confirm("¿Eliminar este evento o reprogramación?")) return;
+            bd_eventos = bd_eventos.filter(e => (e.ID || e.id) != id);
+            renderizarChecklist();
+            actualizarResumenEventos();
+            try {
+                fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'eliminarEvento', id: id }) });
+            } catch(e){}
+        }
+
+        function actualizarResumenEventos() {
+            const pendientes = bd_eventos.filter(e => !(e.Completado === true || e.Completado === "TRUE" || e.Completado === "true"));
+            document.getElementById('cantAlertas').innerText = `${pendientes.length} Pendientes`;
+
+            const contenedor = document.getElementById('resumenEventosProximos');
+            if(pendientes.length === 0) {
+                contenedor.innerHTML = `<p class="italic text-gray-500 text-[10px]">No hay obras ni servicios pendientes.</p>`;
+                return;
+            }
+
+            const proximos = pendientes.sort((a,b) => new Date(a.Fecha) - new Date(b.Fecha)).slice(0, 3);
+            contenedor.innerHTML = proximos.map(e => `
+                <div class="flex justify-between items-center bg-gray-900/60 px-2 py-1 rounded border border-gray-800">
+                    <span class="font-bold text-amber-300 truncate max-w-[200px]">${e.Titulo || e.titulo}</span>
+                    <span class="text-[10px] text-gray-400">${e.Fecha || e.fecha}</span>
                 </div>
             `).join('');
         }
 
-        async function toggleEventoCumplido(id, estado) {
-            const ev = bd_eventos.find(x => x.ID.toString() === id.toString());
-            if(ev) ev.Cumplido = estado;
-            renderizarCalendario();
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'toggleEvento', id: id, cumplido: estado }) });
-        }
-
-        async function borrarEvento(id) {
-            if(!confirm("¿Eliminar este evento/aviso?")) return;
-            bd_eventos = bd_eventos.filter(x => x.ID.toString() !== id.toString());
-            renderizarCalendario();
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'borrarEvento', id: id }) });
-        }
-
-        function verificarAlertas24hs() {
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-            const en24hs = new Date(hoy.getTime() + (36 * 60 * 60 * 1000)); 
+        function verificarAlertasEmergentes() {
+            const ahora = new Date();
+            const proxima24h = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
 
             const urgentes = bd_eventos.filter(e => {
-                if (e.Cumplido) return false;
-                const f = new Date(e.Fecha + "T00:00:00");
-                return f >= hoy && f <= en24hs;
+                const comp = e.Completado === true || e.Completado === "TRUE" || e.Completado === "true";
+                if(comp || !e.Fecha) return false;
+                const fEv = new Date(e.Fecha + 'T23:59:59');
+                const fEvIni = new Date(e.Fecha + 'T00:00:00');
+                return (fEvIni <= proxima24h && fEv >= ahora);
             });
 
             if (urgentes.length > 0) {
-                document.getElementById('badgeAlertas').classList.remove('hidden');
-                const cont = document.getElementById('contenedorAlertasEmergentes');
-                cont.innerHTML = urgentes.map(e => `
-                    <div class="bg-gray-900 p-2.5 rounded-lg border border-red-500/50">
-                        <p class="font-bold text-red-300">${e.Titulo}</p>
-                        <p class="text-[10px] text-amber-400">Fecha: ${e.Fecha}</p>
-                        <p class="text-gray-300 text-[11px]">${e.Detalle || ''}</p>
+                const cont = document.getElementById('contenidoAlertasUrgentes');
+                cont.innerHTML = urgentes.map(u => `
+                    <div class="border-b border-rose-800/60 pb-1">
+                        <p class="font-bold text-rose-200 text-xs">📌 ${u.Titulo || u.titulo}</p>
+                        <p class="text-[10px] text-gray-300">📅 Fecha: ${u.Fecha || u.fecha} - ${u.Descripcion || u.descripcion || ''}</p>
                     </div>
                 `).join('');
-                document.getElementById('modalAlertasEmergentes').classList.remove('hidden');
+                document.getElementById('modalAlertaEmergente').classList.remove('hidden');
             }
         }
 
-        function cerrarModalAlertas() { document.getElementById('modalAlertasEmergentes').classList.add('hidden'); }
+        function cerrarModalAlertas() {
+            document.getElementById('modalAlertaEmergente').classList.add('hidden');
+        }
 
-        /* --- CHAT MULTISUCURSAL --- */
+        /* --- FORO / CHAT INTER-SUCURSALES --- */
 
-        function renderizarChat() {
+        function cargarChat() {
             const cont = document.getElementById('contenedorMensajesChat');
-            if (bd_chat.length === 0) {
-                cont.innerHTML = `<div class="text-xs text-gray-500 text-center py-4">No hay mensajes. ¡Iniciá la conversación!</div>`;
+            const ultimos = bd_chat.slice(-10);
+
+            if(ultimos.length === 0) {
+                cont.innerHTML = `<p class="text-gray-500 italic text-center py-2">Sin conversaciones recientes.</p>`;
                 return;
             }
 
-            cont.innerHTML = bd_chat.map(m => `
-                <div class="bg-gray-800 p-2 rounded-lg border border-gray-700 space-y-1">
-                    <div class="flex justify-between items-center text-[10px]">
-                        <span class="font-bold text-blue-400">${m.Autor} (${m.Sucursal})</span>
-                        <span class="text-gray-500">${m.FechaHora}</span>
+            cont.innerHTML = ultimos.map(c => `
+                <div class="bg-gray-800 p-2 rounded border border-gray-700">
+                    <div class="flex justify-between items-center text-[10px] text-sky-400 font-bold mb-0.5">
+                        <span>${c.Usuario || c.usuario || 'Sucursal'}</span>
+                        <span class="text-gray-500">${c.FechaHora || c.fechaHora || ''}</span>
                     </div>
-                    <p class="text-white text-xs">${m.Mensaje}</p>
+                    <p class="text-white text-xs">${c.Mensaje || c.mensaje}</p>
                 </div>
             `).join('');
 
@@ -801,40 +1038,24 @@
         }
 
         async function enviarMensajeChat() {
-            const input = document.getElementById('chatMensaje');
-            const txt = input.value.trim();
-            if(!txt) return;
+            const usr = document.getElementById('chatUsuario').value.trim() || 'Sucursal';
+            const msg = document.getElementById('chatMensaje').value.trim();
 
-            const suc = document.getElementById('chatSucursal').value;
-            const aut = document.getElementById('chatAutor').value.trim() || 'Tommy';
-            const fechaHora = new Date().toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+            if(!msg) return;
 
-            const msgObj = { ID: "MSG-" + Date.now(), FechaHora: fechaHora, Sucursal: suc, Autor: aut, Mensaje: txt };
-            bd_chat.push(msgObj);
-            renderizarChat();
-            input.value = '';
+            const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            const nuevoMsg = { id: 'MSG-' + Date.now(), fechaHora: hora, usuario: usr, mensaje: msg };
 
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarChat', data: msgObj }) });
+            bd_chat.push({ ID: nuevoMsg.id, FechaHora: hora, Usuario: usr, Mensaje: msg });
+            document.getElementById('chatMensaje').value = '';
+            cargarChat();
+
+            try {
+                fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'enviarMensajeChat', data: nuevoMsg }) });
+            } catch(e){}
         }
 
-        /* --- MÉTODOS EXISTENTES / AUXILIARES --- */
-
-        function cambiarModo(modo) {
-            const btnB = document.getElementById('btnModoBuscar');
-            const btnC = document.getElementById('btnModoCrear');
-            const secB = document.getElementById('seccionBuscador');
-            const secC = document.getElementById('seccionAltaNueva');
-            if (modo === 'buscar') {
-                btnB.className = "bg-blue-600 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
-                btnC.className = "bg-gray-800/90 border border-gray-700 text-gray-400 font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
-                secB.classList.remove('hidden'); secC.classList.add('hidden');
-            } else {
-                btnC.className = "bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
-                btnB.className = "bg-gray-800/90 border border-gray-700 text-gray-400 font-bold py-2 rounded-xl text-xs uppercase shadow-md transition-all";
-                secC.classList.remove('hidden'); secB.classList.add('hidden');
-                document.getElementById('panelProducto').classList.add('hidden');
-            }
-        }
+        /* --- AUXILIARES Y REPORTES --- */
 
         function descargarPDFDirecto(tipo) {
             const { jsPDF } = window.jspdf;
@@ -844,27 +1065,40 @@
             
             let filtrados = bd_productos.filter(p => p.ID);
             if (rubroFiltro !== 'TODOS') filtrados = filtrados.filter(p => p.Rubro === rubroFiltro);
-            if (filtrados.length === 0) { alert("No hay artículos cargados."); return; }
+            if (filtrados.length === 0) { alert("No hay artículos cargados para este rubro."); return; }
 
-            doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(30, 58, 138); doc.text("PROYECTO AGUA", 14, 18);
+            doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(30, 58, 138); 
+            doc.text("PROYECTO AGUA", 14, 18);
+            
             doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.setFont("helvetica", "normal");
             
             let columnas = []; let filas = [];
+
             if (tipo === 'precios') {
-                doc.text(`Lista de Precios Oficial - Rubro: ${rubroFiltro}`, 14, 24); doc.text(`Fecha: ${fecha}`, 14, 29);
-                columnas = ["Código", "Descripción", "Rubro", "Precio Final"];
-                filas = filtrados.map(p => [p.ID, p.Descripción || '', p.Rubro || 'Gral', `$ ${obtenerPrecioPesosCalculado(p).toLocaleString('es-AR', {minimumFractionDigits: 2})}`]);
+                doc.text(`Lista de Precios Oficial - Rubro: ${rubroFiltro}`, 14, 24);
+                doc.text(`Fecha: ${fecha}`, 14, 29);
+                columnas = ["Código", "Descripción / Artículo", "Rubro", "Precio Final"];
+                filas = filtrados.map(p => [
+                    p.ID, p.Descripción || '(Sin descripción)', p.Rubro || 'Gral',
+                    `$ ${obtenerPrecioPesosCalculado(p).toLocaleString('es-AR', {minimumFractionDigits: 2})}`
+                ]);
             } else {
-                doc.text(`Reporte de Stock - Rubro: ${rubroFiltro}`, 14, 24); doc.text(`Fecha: ${fecha}`, 14, 29);
-                columnas = ["Código", "Descripción", "Stock Lemos", "Stock Ozamis"];
-                filas = filtrados.map(p => [p.ID, p.Descripción || '', `${p['Stock Lemos'] || 0} u.`, `${p['Stock Ozamis'] || 0} u.`]);
+                doc.text(`Reporte de Stock de Inventario - Rubro: ${rubroFiltro}`, 14, 24);
+                doc.text(`Fecha de emisión: ${fecha}`, 14, 29);
+                columnas = ["Código", "Descripción / Artículo", "Stock Lemos", "Stock Ozamis"];
+                filas = filtrados.map(p => [
+                    p.ID, p.Descripción || '(Sin descripción)',
+                    `${p['Stock Lemos'] || 0} u.`, `${p['Stock Ozamis'] || 0} u.`
+                ]);
             }
 
             doc.autoTable({
                 startY: 34, head: [columnas], body: filas, theme: 'striped',
                 headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: 'bold' },
-                styles: { fontSize: 9, cellPadding: 2.5 }
+                styles: { fontSize: 9, cellPadding: 2.5 },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 25 }, 1: { cellWidth: 'auto' }, 2: { halign: 'center' }, 3: { halign: 'right', fontStyle: 'bold' } }
             });
+
             doc.save(`${tipo}_proyecto_agua_${fecha.replace(/\//g, '-')}.pdf`);
         }
 
@@ -882,7 +1116,7 @@
                 const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarProducto', data: prod }) });
                 const rta = await res.json();
                 if (rta.success) { alert("Alta exitosa."); bd_productos.push(prod); cambiarModo('buscar'); }
-            } catch(e) { alert("Error al registrar."); }
+            } catch(e) { alert("Error."); }
         }
 
         async function ejecutarMovimiento(tipo) {
@@ -907,7 +1141,7 @@
             try {
                 const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'guardarProducto', data: prodModificado }) });
                 const rta = await res.json();
-                if (rta.success) { Object.assign(productoSeleccionado, prodModificado); seleccionarProducto(productoSeleccionado.ID); alert("Ficha guardada."); }
+                if (rta.success) { Object.assign(productoSeleccionado, prodModificado); seleccionarProducto(productoSeleccionado.ID); alert("Guardado."); }
             } catch (e) { alert("Error."); }
         }
 
@@ -919,6 +1153,10 @@
                 if (rta.success) {
                     if (tablaDestino === 'Rubros') bd_rubros.push({ Nombre: nombre });
                     if (tablaDestino === 'Proveedores') bd_proveedores.push({ Nombre: nombre });
+                    if (tablaDestino === 'Monedas') {
+                        bd_monedas.push(nombre);
+                        renderizarCotizacionesInputs();
+                    }
                     actualizarMenusDesplegables();
                 }
             } catch (e) { alert("Error."); }
